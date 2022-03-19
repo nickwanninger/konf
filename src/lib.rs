@@ -15,7 +15,23 @@ pub enum Type {
     String,
 }
 
+impl Default for Type {
+    fn default() -> Self {
+        Self::Bool
+    }
+}
+
 impl Type {
+    /// Create a Type from it's string representation
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// assert_eq!(Type::new("bool"), Type::Bool);
+    /// assert_eq!(Type::new("int"), Type::Int);
+    /// assert_eq!(Type::new("hex"), Type::Hex);
+    /// assert_eq!(Type::new("string"), Type::String);
+    /// ```
     pub fn new(s: &str) -> Option<Self> {
         let t = match s {
             "bool" => Self::Bool,
@@ -25,6 +41,34 @@ impl Type {
             _ => return None,
         };
         Some(t)
+    }
+
+    /// Returns `true` if the type is [`Bool`].
+    ///
+    /// [`Bool`]: Type::Bool
+    pub fn is_bool(&self) -> bool {
+        matches!(self, Self::Bool)
+    }
+
+    /// Returns `true` if the type is [`Int`].
+    ///
+    /// [`Int`]: Type::Int
+    pub fn is_int(&self) -> bool {
+        matches!(self, Self::Int)
+    }
+
+    /// Returns `true` if the type is [`Hex`].
+    ///
+    /// [`Hex`]: Type::Hex
+    pub fn is_hex(&self) -> bool {
+        matches!(self, Self::Hex)
+    }
+
+    /// Returns `true` if the type is [`String`].
+    ///
+    /// [`String`]: Type::String
+    pub fn is_string(&self) -> bool {
+        matches!(self, Self::String)
     }
 }
 
@@ -46,6 +90,64 @@ pub enum Value {
     Int(i64),
     Hex(u64),
     String(String),
+}
+
+impl From<String> for Value {
+    fn from(v: String) -> Self {
+        Self::String(v)
+    }
+}
+
+impl From<u64> for Value {
+    fn from(v: u64) -> Self {
+        Self::Hex(v)
+    }
+}
+
+impl From<i64> for Value {
+    fn from(v: i64) -> Self {
+        Self::Int(v)
+    }
+}
+
+impl From<bool> for Value {
+    fn from(v: bool) -> Self {
+        Self::Bool(v)
+    }
+}
+
+impl Value {
+    pub fn as_bool(&self) -> Option<&bool> {
+        if let Self::Bool(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_int(&self) -> Option<&i64> {
+        if let Self::Int(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_hex(&self) -> Option<&u64> {
+        if let Self::Hex(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_string(&self) -> Option<&String> {
+        if let Self::String(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
 }
 
 impl fmt::Display for Value {
@@ -138,6 +240,7 @@ pub struct Menu {
 }
 
 impl Menu {
+    /// Create a new empty menu with a name
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),
