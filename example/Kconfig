@@ -1,0 +1,6 @@
+mainmenu "Example Configuration"
+
+config FOO
+	bool "Hello"
+
+config BAR
