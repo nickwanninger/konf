@@ -1,3 +1,0 @@
-
-config NESTED
-	bool "Nested"

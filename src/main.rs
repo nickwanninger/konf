@@ -27,5 +27,5 @@ fn main() {
     println!("{}", config);
     config.load(".config").unwrap();
     println!("{}", config);
-    // config.save_config(".config").unwrap();
+    config.save_config(".config").unwrap();
 }

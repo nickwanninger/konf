@@ -1,9 +1,21 @@
 mainmenu "Example Configuration"
 
-source "kconfig.other"
+menu "Build"
 
-config FOO
-	bool "Foo"
+	config GCC
+		bool "Use GCC"
+		default y
 
-config BAR
-	bool "Another Config"
+	config CLANG
+		bool "Use Clang"
+		default n
+
+	config DEBUG
+		bool "Enable Debug"
+		default n
+
+	config OPTIMIZATION
+		bool "Enable Optimization"
+		default y
+
+endmenu
