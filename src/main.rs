@@ -13,8 +13,6 @@ struct Args {
     config: String,
 }
 
-// konf [flags] <Kconfig>
-
 fn main() {
     let args = Args::parse();
     let config = konf::parser::parse_file(&args.config);
@@ -23,5 +21,11 @@ fn main() {
         eprintln!("failed to parse {}: {}", args.config, err);
         return;
     }
-    println!("{}", config.unwrap());
+
+    let mut config = config.unwrap();
+    config.load_default();
+    println!("{}", config);
+    config.load(".config").unwrap();
+    println!("{}", config);
+    // config.save_config(".config").unwrap();
 }

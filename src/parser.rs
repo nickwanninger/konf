@@ -23,6 +23,18 @@ enum Token<'a> {
     #[token("config")]
     Config,
 
+    #[token("default")]
+    Default,
+
+    #[token("y")]
+    Yes,
+
+    #[token("n")]
+    No,
+
+    #[token("=")]
+    Equals,
+
     #[regex("[A-Z_]+")]
     Name(&'a str),
 
@@ -41,7 +53,7 @@ enum Token<'a> {
     Error,
 }
 
-struct Tokenizer<'a> {
+struct Parser<'a> {
     toks: std::iter::Peekable<Lexer<'a, Token<'a>>>,
 }
 
@@ -58,7 +70,7 @@ macro_rules! accept {
     };
 }
 
-impl<'a> Tokenizer<'a> {
+impl<'a> Parser<'a> {
     pub fn new(text: &'a str) -> Self {
         Self {
             toks: Token::lexer(text).peekable(),
@@ -75,13 +87,31 @@ impl<'a> Tokenizer<'a> {
 
     accept!(accept_string, String, &'a str);
     accept!(accept_type, Type, Type);
+
+    pub fn parse_value(&mut self) -> Option<Value> {
+        let val = self.peek();
+        if let Some(val) = val {
+            match val {
+                Token::Yes => {
+                    self.next();
+                    return Some(Value::Bool(true));
+                }
+                Token::No => {
+                    self.next();
+                    return Some(Value::Bool(false));
+                }
+                _ => return None,
+            }
+        }
+        return None;
+    }
 }
 
 impl Menu {
     fn parse<'a>(
         &mut self,
         path: &Path,
-        toks: &mut Tokenizer<'a>,
+        toks: &mut Parser<'a>,
         vars: &mut IndexMap<String, Variable>,
     ) -> std::result::Result<(), &'static str> {
         while let Some(tok) = toks.next() {
@@ -130,6 +160,16 @@ impl Menu {
                                     continue;
                                 }
 
+                                if let Some(Token::Default) = toks.peek() {
+                                    toks.next();
+
+                                    if let Some(val) = toks.parse_value() {
+                                        var.default = Some(val);
+                                    } else {
+                                        return Err("Missing argument for `default`");
+                                    }
+                                }
+
                                 break;
                             }
 
@@ -164,7 +204,7 @@ pub fn parse_file<P: AsRef<Path>>(path: P) -> std::result::Result<KConfig, &'sta
     if let Err(e) = file_text {
         panic!("Failed to read: {}", e);
     }
-    let mut toks = Tokenizer::new(file_text.as_ref().unwrap());
+    let mut toks = Parser::new(file_text.as_ref().unwrap());
 
     let mut kconfig = KConfig::new();
 
@@ -175,4 +215,23 @@ pub fn parse_file<P: AsRef<Path>>(path: P) -> std::result::Result<KConfig, &'sta
     kconfig.name = kconfig.root.name.clone();
 
     Ok(kconfig)
+}
+
+pub fn parse_config_line(line: &str) -> Option<(String, Value)> {
+    // First, handle "is not set"
+    let unset_match = Regex::new(r"# CONFIG_([^ ]+) is not set").unwrap();
+    if let Some(caps) = unset_match.captures(line) {
+        return Some((caps[1].to_string(), Value::Bool(false)));
+    }
+
+    let mut toks = Parser::new(line);
+
+    if let Some(Token::Name(s)) = toks.next() {
+        if let Some(Token::Equals) = toks.next() {
+            if let Some(v) = toks.parse_value() {
+                return Some((s.strip_prefix("CONFIG_").unwrap().to_string(), v));
+            }
+        }
+    }
+    return None;
 }
