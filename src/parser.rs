@@ -217,21 +217,28 @@ pub fn parse_file<P: AsRef<Path>>(path: P) -> std::result::Result<KConfig, &'sta
     Ok(kconfig)
 }
 
+/// Return a variable/value mapping, parsed from a line of `.config`. There are a few
+/// cases that this function can handle:
+///
+///
 pub fn parse_config_line(line: &str) -> Option<(String, Value)> {
-    // First, handle "is not set"
+    // First, handle "is not set". If this regex matches, it really just means CONFIG_X=n.
     let unset_match = Regex::new(r"# CONFIG_([^ ]+) is not set").unwrap();
     if let Some(caps) = unset_match.captures(line) {
         return Some((caps[1].to_string(), Value::Bool(false)));
     }
 
+    // Create a parser for the line
     let mut toks = Parser::new(line);
-
-    if let Some(Token::Name(s)) = toks.next() {
-        if let Some(Token::Equals) = toks.next() {
-            if let Some(v) = toks.parse_value() {
-                return Some((s.strip_prefix("CONFIG_").unwrap().to_string(), v));
-            }
+    // Try to parse a Name
+    if let Token::Name(s) = toks.next()? {
+        // then an Equals
+        if let Token::Equals = toks.next()? {
+            // Then a value
+            let v = toks.parse_value()?;
+            // And return it with the `CONFIG_` stripped from the front
+            return Some((s.strip_prefix("CONFIG_").unwrap().to_string(), v));
         }
     }
-    return None;
+    None
 }

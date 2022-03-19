@@ -191,7 +191,6 @@ impl fmt::Display for Menu {
     }
 }
 
-/// The structure to represent the contents of a Kconfig file
 #[derive(Debug)]
 pub struct KConfig {
     pub name: String,
@@ -200,6 +199,14 @@ pub struct KConfig {
 }
 
 impl KConfig {
+    /// Allocate a new KConfig
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use konf::KConfig;
+    /// let kconfig = KConfig::new();
+    /// ```
     pub fn new() -> Self {
         Self {
             name: "config".to_string(),
@@ -208,15 +215,47 @@ impl KConfig {
         }
     }
 
+    /// Merge a kconfig into another. This is the implementation for the `source` operation in
+    /// Kconfig files. By consuming `other`, this method takes all variables and menu entries and
+    /// moves them into `self` appropriately
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use konf::KConfig;
+    ///
+    /// let mut kconfig = ;
+    /// let mut other = ;
+    /// kconfig.source(other);
+    /// ```
     pub fn source(&mut self, other: Self) {
+        // TODO: deal with the `root`
         self.vars.extend(other.vars);
     }
 
+    /// Add a variable to the KConfig. This does not result in a binding into a menu
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use konf::KConfig;
+    ///
+    /// let mut kconfig = ;
+    /// kconfig.add_var(var);
+    /// ```
     pub fn add_var(&mut self, var: Variable) {
         self.vars.insert(var.name.to_string(), var);
-        // self.
     }
 
+    /// Save the current value state of all variables in a KConfig
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use konf::KConfig;
+    /// let kconfig = ...;
+    /// let values = kconfig.save();
+    /// ```
     pub fn save(&self) -> IndexMap<String, Option<Value>> {
         self.vars
             .iter()
@@ -224,8 +263,23 @@ impl KConfig {
             .collect()
     }
 
-    pub fn save_config(&self, dst: &str) -> io::Result<()> {
-        let mut file = std::fs::File::create(dst)?;
+    /// Save the KConfig's current value state to a .config file located at `config`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use konf::KConfig;
+    ///
+    /// let kconfig = ;
+    /// kconfig.save_config(".config")
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if it cannot create the file or cannot write to the
+    /// file.
+    pub fn save_config(&self, config: &str) -> io::Result<()> {
+        let mut file = std::fs::File::create(config)?;
         let settings = self.save();
         for (k, v) in &settings {
             match v {
@@ -246,12 +300,38 @@ impl KConfig {
         Ok(())
     }
 
+    /// Load the default configuration from the `default` values
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use konf::KConfig;
+    ///
+    /// let mut kconfig = ;
+    /// kconfig.load_default();
+    /// ```
     pub fn load_default(&mut self) {
         for (_k, v) in &mut self.vars {
             v.value = v.default.clone();
         }
     }
 
+    /// Load a `.config` file located at `config_file` into the KConfig's state
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use konf::KConfig;
+    ///
+    /// let mut kconfig = ;
+    /// assert_eq!(kconfig.load(config_file), );
+    /// assert_eq!(kconfig, );
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the file at `config_file` is not found, or it is
+    /// malformed in any way.
     pub fn load(&mut self, config_file: &str) -> io::Result<()> {
         let file = std::fs::File::open(config_file)?;
         let reader = BufReader::new(file);
