@@ -1,6 +1,5 @@
 use super::*;
 use logos::{Lexer, Logos};
-use std::ffi::OsStr;
 use std::path::Path;
 
 fn string_tokenize<'a>(lex: &mut Lexer<'a, Token<'a>>) -> Option<&'a str> {
@@ -15,6 +14,11 @@ enum Token<'a> {
 
     #[token("source")]
     Source,
+
+    #[token("menu")]
+    Menu,
+    #[token("endmenu")]
+    EndMenu,
 
     #[token("config")]
     Config,
@@ -73,6 +77,86 @@ impl<'a> Tokenizer<'a> {
     accept!(accept_type, Type, Type);
 }
 
+impl Menu {
+    fn parse<'a>(
+        &mut self,
+        path: &Path,
+        toks: &mut Tokenizer<'a>,
+        vars: &mut HashMap<String, Variable>,
+    ) -> std::result::Result<(), &'static str> {
+        while let Some(tok) = toks.next() {
+            // top level options:
+            //    MainMenu
+            //    Config
+            // TODO:
+            //    Include
+            //
+            match tok {
+                // "mainmenu"
+                Token::MainMenu => {
+                    let name = toks.next();
+                    match name {
+                        Some(Token::String(name)) => self.name = name.to_string(),
+                        _ => return Err("Invalid option to `mainmenu`"),
+                    };
+                }
+
+                Token::Menu => {
+                    if let Some(s) = toks.accept_string() {
+                        let mut m = Menu::new(s);
+                        m.parse(path, toks, vars)?;
+                    }
+                }
+                Token::EndMenu => {
+                    // consume the endmenu
+                    break;
+                }
+
+                // "config" NAME
+                Token::Config => {
+                    // get the NAME
+                    match toks.next() {
+                        Some(Token::Name(name)) => {
+                            let mut var = Variable::new(name);
+                            loop {
+                                // capture the type of the variable
+                                if let Some(t) = toks.accept_type() {
+                                    var.ty = Some(t);
+                                    // Capture the optional description after the type
+                                    if let Some(s) = toks.accept_string() {
+                                        var.desc = Some(s.to_string());
+                                    }
+                                    continue;
+                                }
+
+                                break;
+                            }
+
+                            vars.insert(var.name.clone(), var);
+                        }
+                        _ => return Err("Invalid name for `config`"),
+                    };
+                }
+
+                // "source" STRING
+                Token::Source => {
+                    if let Some(s) = toks.accept_string() {
+                        // get the parent path of the current kconfig
+                        let target = path.canonicalize().unwrap().parent().unwrap().join(s);
+                        let other = parse_file(target)?;
+                        // TOAD: merge the menu bro
+                        vars.extend(other.vars);
+                    } else {
+                        return Err("invalid argument to `source`");
+                    }
+                }
+                _ => return Err("invalid top level token"),
+            }
+        }
+        Ok(())
+    }
+}
+
 pub fn parse_file<P: AsRef<Path>>(path: P) -> std::result::Result<KConfig, &'static str> {
     let file_text = std::fs::read_to_string(path.as_ref());
     if let Err(e) = file_text {
@@ -80,76 +164,13 @@ pub fn parse_file<P: AsRef<Path>>(path: P) -> std::result::Result<KConfig, &'sta
     }
     let mut toks = Tokenizer::new(file_text.as_ref().unwrap());
 
-    let mut kconfig = KConfig {
-        name: "config".to_string(),
-        entries: vec![],
-    };
+    let mut kconfig = KConfig::new();
 
-    while let Some(tok) = toks.next() {
-        // top level options:
-        //    MainMenu
-        //    Config
-        // TODO:
-        //    Include
-        //
-        match tok {
-            // "mainmenu"
-            Token::MainMenu => {
-                let name = toks.next();
-                match name {
-                    Some(Token::String(name)) => kconfig.name = name.to_string(),
-                    _ => return Err("Invalid option to `mainmenu`"),
-                };
-            }
+    kconfig
+        .root
+        .parse(path.as_ref(), &mut toks, &mut kconfig.vars)?;
 
-            // "config" NAME
-            Token::Config => {
-                // get the NAME
-                match toks.next() {
-                    Some(Token::Name(name)) => {
-                        let mut var = Variable::new(name);
-                        loop {
-                            // capture the type of the variable
-                            if let Some(t) = toks.accept_type() {
-                                var.ty = Some(t);
-                                // Capture the optional description after the type
-                                if let Some(s) = toks.accept_string() {
-                                    var.desc = Some(s.to_string());
-                                }
-                                continue;
-                            }
-
-                            break;
-                        }
-
-                        kconfig.entries.push(Entry::Variable(var));
-                    }
-                    _ => return Err("Invalid name for `config`"),
-                };
-            }
-
-            // "source" STRING
-            Token::Source => {
-                if let Some(s) = toks.accept_string() {
-                    // get the parent path of the current kconfig
-                    let target = path
-                        .as_ref()
-                        .canonicalize()
-                        .unwrap()
-                        .parent()
-                        .unwrap()
-                        .join(s);
-                    dbg!(&target);
-
-                    kconfig.source(parse_file(target)?);
-                    // s is a path, relative to where?
-                } else {
-                    return Err("invalid argument to `source`");
-                }
-            }
-            _ => return Err("invalid top level token"),
-        }
-    }
+    kconfig.name = kconfig.root.name.clone();
 
     Ok(kconfig)
 }

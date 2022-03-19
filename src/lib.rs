@@ -3,12 +3,16 @@ pub mod parser;
 pub struct Error;
 pub type Result<T> = std::result::Result<T, Error>;
 
+use std::collections::HashMap;
 
 use std::fmt;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Type {
-    Bool, Int, Hex, String
+    Bool,
+    Int,
+    Hex,
+    String,
 }
 
 impl Type {
@@ -23,7 +27,6 @@ impl Type {
         Some(t)
     }
 }
-
 
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -65,7 +68,7 @@ impl fmt::Display for Variable {
             if let Some(d) = &self.desc {
                 write!(f, " \"{d}\"")?;
             }
-            
+
             writeln!(f)?;
         }
         Ok(())
@@ -74,26 +77,49 @@ impl fmt::Display for Variable {
 
 #[derive(Debug)]
 pub enum Entry {
-    Variable(Variable)
-}
-
-impl fmt::Display for Entry {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Entry::Variable(v) => v.fmt(f)
-        }
-    }
+    Variable(String),
+    Menu(Menu),
 }
 
 #[derive(Debug)]
-pub struct KConfig {
+pub struct Menu {
     pub name: String,
     pub entries: Vec<Entry>,
 }
 
+impl Menu {
+    pub fn new(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            entries: vec![],
+        }
+    }
+}
+
+/// The structure to represent the contents of a Kconfig file
+#[derive(Debug)]
+pub struct KConfig {
+    pub name: String,
+    pub root: Menu,
+    pub vars: HashMap<String, Variable>,
+}
+
 impl KConfig {
-    pub fn source(&mut self, mut other: Self) {
-        self.entries.append(&mut other.entries);
+    pub fn new() -> Self {
+        Self {
+            name: "config".to_string(),
+            root: Menu::new("(top)"),
+            vars: Default::default(),
+        }
+    }
+
+    pub fn source(&mut self, other: Self) {
+        self.vars.extend(other.vars);
+    }
+
+    pub fn add_var(&mut self, var: Variable) {
+        self.vars.insert(var.name.to_string(), var);
+        // self.
     }
 }
 
@@ -101,8 +127,8 @@ impl fmt::Display for KConfig {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f, "mainmenu \"{}\"", self.name)?;
         f.write_str("\n")?;
-        for entry in &self.entries {
-            entry.fmt(f)?;
+        for var in &self.vars {
+            var.1.fmt(f)?;
             f.write_str("\n")?;
         }
         Ok(())

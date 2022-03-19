@@ -2,7 +2,6 @@
 
 use clap::Parser;
 
-
 /// Simple program to greet a person
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -14,18 +13,15 @@ struct Args {
     config: String,
 }
 
-
 // konf [flags] <Kconfig>
 
 fn main() {
     let args = Args::parse();
-    println!("Config location: {}", args.config);
-
     let config = konf::parser::parse_file(&args.config);
 
     if let Err(err) = config {
         eprintln!("failed to parse {}: {}", args.config, err);
         return;
     }
-    println!("config:\n{}", config.unwrap());
+    println!("{}", config.unwrap());
 }
