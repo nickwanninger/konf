@@ -10,3 +10,4 @@ keywords = ["config", "kconfig"]
 [dependencies]
 clap = { version = "3.1.6", features = ["derive"] }
 logos = "0.12.0"
+indexmap = "1.8.0"

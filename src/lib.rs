@@ -2,8 +2,7 @@ pub mod parser;
 
 pub struct Error;
 pub type Result<T> = std::result::Result<T, Error>;
-
-use std::collections::HashMap;
+use indexmap::IndexMap;
 
 use std::fmt;
 
@@ -60,18 +59,32 @@ impl Variable {
     }
 }
 
-impl fmt::Display for Variable {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+fn spaces(f: &mut fmt::Formatter, depth: i32) -> fmt::Result {
+    for _i in 0..depth {
+        write!(f, "    ")?;
+    }
+    Ok(())
+}
+
+impl Variable {
+    fn pretty_format(&self, f: &mut fmt::Formatter, depth: i32) -> fmt::Result {
+        spaces(f, depth)?;
         writeln!(f, "config {}", self.name)?;
         if let Some(t) = self.ty {
-            write!(f, "  {t}")?;
+            spaces(f, depth + 1)?;
+            write!(f, "{t}")?;
             if let Some(d) = &self.desc {
                 write!(f, " \"{d}\"")?;
             }
-
             writeln!(f)?;
         }
         Ok(())
+    }
+}
+
+impl fmt::Display for Variable {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.pretty_format(f, 1)
     }
 }
 
@@ -96,12 +109,57 @@ impl Menu {
     }
 }
 
+impl Menu {
+    fn pretty_format(&self, f: &mut fmt::Formatter, kconfig: &KConfig, depth: i32) -> fmt::Result {
+        if depth > 0 {
+            spaces(f, depth - 1)?;
+            writeln!(f, "menu \"{}\"", self.name)?;
+        }
+        for ent in &self.entries {
+            match ent {
+                Entry::Menu(m) => {
+                    m.pretty_format(f, kconfig, depth + 1)?;
+                }
+                Entry::Variable(s) => {
+                    let var = kconfig.vars.get(s);
+                    if let Some(var) = var {
+                        var.pretty_format(f, depth)?;
+                    }
+                }
+            }
+        }
+        if depth > 0 {
+            spaces(f, depth - 1)?;
+            writeln!(f, "endmenu\n")?;
+        }
+        Ok(())
+    }
+}
+
+impl fmt::Display for Menu {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "menu \"{}\"", self.name)?;
+        for ent in &self.entries {
+            match ent {
+                Entry::Menu(m) => {
+                    m.fmt(f)?;
+                }
+                Entry::Variable(s) => {
+                    writeln!(f, "  {}", s)?;
+                }
+            }
+        }
+        writeln!(f, "endmenu")?;
+        Ok(())
+    }
+}
+
 /// The structure to represent the contents of a Kconfig file
 #[derive(Debug)]
 pub struct KConfig {
     pub name: String,
     pub root: Menu,
-    pub vars: HashMap<String, Variable>,
+    pub vars: IndexMap<String, Variable>,
 }
 
 impl KConfig {
@@ -127,10 +185,7 @@ impl fmt::Display for KConfig {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f, "mainmenu \"{}\"", self.name)?;
         f.write_str("\n")?;
-        for var in &self.vars {
-            var.1.fmt(f)?;
-            f.write_str("\n")?;
-        }
+        self.root.pretty_format(f, self, 0)?;
         Ok(())
     }
 }

@@ -82,7 +82,7 @@ impl Menu {
         &mut self,
         path: &Path,
         toks: &mut Tokenizer<'a>,
-        vars: &mut HashMap<String, Variable>,
+        vars: &mut IndexMap<String, Variable>,
     ) -> std::result::Result<(), &'static str> {
         while let Some(tok) = toks.next() {
             // top level options:
@@ -105,6 +105,7 @@ impl Menu {
                     if let Some(s) = toks.accept_string() {
                         let mut m = Menu::new(s);
                         m.parse(path, toks, vars)?;
+                        self.entries.push(Entry::Menu(m));
                     }
                 }
                 Token::EndMenu => {
@@ -133,6 +134,7 @@ impl Menu {
                             }
 
                             vars.insert(var.name.clone(), var);
+                            self.entries.push(Entry::Variable(name.to_string()));
                         }
                         _ => return Err("Invalid name for `config`"),
                     };
