@@ -1,0 +1,28 @@
+kconfig = {
+	( mainmenu | config )+
+}
+
+mainmenu = { "mainmenu" ~ string }
+config = { "config" ~ name ~(field)*  }
+
+field = {
+	typedecl
+}
+
+
+typedecl = { typename ~ string }
+
+string = ${ "\"" ~ inner ~ "\"" }
+inner = @{ char* }
+char = {
+    !("\"" | "\\") ~ ANY
+    | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
+    | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
+}
+
+name = { (UPPERCASE_LETTER | "_")* }
+typename = ${ "bool" | "def_bool" | "def_tristate" | "int" | "hex" | "string" | "tristate" }
+
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT    = _{ "#" ~ (!("\r" | "\n") ~ ANY)* }
+
