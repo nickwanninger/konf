@@ -1,6 +1,9 @@
 mainmenu "Example Configuration"
 
+source "kconfig.other"
+
 config FOO
-	bool "Hello"
+	bool "Foo"
 
 config BAR
+	bool "Another Config"

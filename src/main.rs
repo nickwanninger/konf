@@ -1,3 +1,5 @@
+#![warn(rust_2018_idioms)]
+
 use clap::Parser;
 
 
@@ -19,15 +21,11 @@ fn main() {
     let args = Args::parse();
     println!("Config location: {}", args.config);
 
+    let config = konf::parser::parse_file(&args.config);
 
-    let file_text = std::fs::read_to_string(&args.config);
-    if let Err(e) = file_text {
-        panic!("Failed to read: {}", e);
-    }
-    let config = konf::parser::parse(&file_text.unwrap());
-
-    if let Err(_e) = config {
-        eprintln!("failed to parse {}", args.config);
+    if let Err(err) = config {
+        eprintln!("failed to parse {}: {}", args.config, err);
         return;
     }
+    println!("config:\n{}", config.unwrap());
 }
